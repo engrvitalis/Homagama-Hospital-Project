@@ -115,3 +115,5 @@ D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\GenerateResource.read
 D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\GenerateResource.write.1.tlog
 D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.exe
 D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.pdb
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\Window1.baml
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\Window1.g.cs
