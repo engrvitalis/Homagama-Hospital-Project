@@ -34,15 +34,29 @@ namespace BaseHospitalHomagama
         List<AutoCompleteBox> speciTexts = new List<AutoCompleteBox>();
         specimenSuggestions spSg;
         List<String> suggestions;
-        Database database = new Database("database.mdb");
+        
+        String draftsPath = @"Temp\Drafts List.dft";
+        String templatePath = @"Data\Histopathology Report Template.docx";
+        String printPath = @"Temp\Print.docx";
+        public static String specimensPath = @"Temp\Specimens.cse";
+        public static String databasePath = @"Data\Database.mdb";
+
+        Database database = new Database(MainWindow.databasePath);        
+
+        Record draftWorkingOn = null;
+
         CultureInfo cultureInfo;//**
         TextInfo textInfo;//**
-        int selectedList;           //0-all, 1-bht, 2-name, 3-specimen, 4-severity
+        int selectedList;           //0-all, 1-other
+        int total, start, end; //variables used in numbering the search results 
+        public static string topdate;
+        public static string bottomdate;
         public static int topid;
         public static int bottomid;
         public static bool hasmore;
         public static int listsize=10;
         public static String template="";
+        public static String searchPhrase;
         String[] templates;
         String templField;
         WindowTemplates wintemp;
@@ -53,6 +67,9 @@ namespace BaseHospitalHomagama
         public MainWindow()
         {
             InitializeComponent();
+
+            textBoxPassword.Focus();
+
             textClinicalDetails.SpellCheck.IsEnabled = true;
             textMacroscopy.SpellCheck.IsEnabled = true;
             textMicroscopy.SpellCheck.IsEnabled = true;
@@ -79,7 +96,7 @@ namespace BaseHospitalHomagama
             timer2.Interval = new TimeSpan(0, 0, 1);
             timer2.Tick += new EventHandler(timer2_Elapsed);
 
-            if (!File.Exists("specimenList.cse"))
+            if (!File.Exists(MainWindow.specimensPath))
             {
                 spSg.specimen = new String[] {"Uterine Curettings","Cervical Polyps","Product of Conception",
             "Product of ERPC","Endometrial Sampling","Uterus and Bilateral Ovaries","Ovarian Cyst",
@@ -137,7 +154,7 @@ namespace BaseHospitalHomagama
 
         }
 
-        private Boolean retrieveReport(String reportNo)
+        /*private Boolean retrieveReport(String reportNo)
         {
             database.connectToDatabase();
             if (database.hasEntry(reportNo, "reportNo"))
@@ -152,7 +169,7 @@ namespace BaseHospitalHomagama
                 database.closeConnection();
                 return false;
             }
-        }
+        }*/
 
         private void fillFields(Record record)
         {
@@ -163,8 +180,14 @@ namespace BaseHospitalHomagama
             textBhtNo.Text = record.BHT;
             comboBoxTitle.SelectedIndex = -1;
             comboBoxTitle.Text = record.title;
+            if (comboBoxTitle.Text == "Baby")
+            {
+                textMonth.Visibility = System.Windows.Visibility.Visible;
+                labelMonths.Visibility = System.Windows.Visibility.Visible;
+                textMonth.Text = record.months.ToString();
+            }
             textPatientName.Text = record.Name;
-            textAge.Text = record.Age.ToString();
+            textAge.Text = record.years.ToString();
             comboBoxGender.Text = record.Gender;
             textSpecimen.Text = record.specimenArray[0];
             comboBoxSeverity.Text = record.severity;        //**
@@ -188,8 +211,10 @@ namespace BaseHospitalHomagama
 
         private void print()
         {
-            object FileName = AppDomain.CurrentDomain.BaseDirectory + "\\BASE HOSPITAL HOMAGAMA.docx";//
-            object saveAs = "b.docx";
+            object FileName = AppDomain.CurrentDomain.BaseDirectory + "\\" + templatePath;//
+            object saveAs = printPath;
+            object password = "CSE'10_CSR";
+            object noPassword = "";
             object missing = System.Reflection.Missing.Value;
             Microsoft.Office.Interop.Word.Application wordApp = new Microsoft.Office.Interop.Word.Application();
             wordApp.Options.set_DefaultFilePath(0, AppDomain.CurrentDomain.BaseDirectory);
@@ -197,13 +222,16 @@ namespace BaseHospitalHomagama
             object readOnly = true;
             object isVisible = false;
             wordApp.Visible = false;
-            aDoc = wordApp.Documents.Open(ref FileName, ref missing, ref readOnly, ref missing, ref missing,
+            aDoc = wordApp.Documents.Open(ref FileName, ref missing, ref readOnly, ref missing, ref password,
                 ref missing, ref missing, ref missing, ref missing, ref missing, ref missing, ref isVisible,
                  ref missing, ref missing, ref missing, ref missing);
             aDoc.Activate();
 
             FindindReplace(wordApp, "<name>", comboBoxTitle.Text + " " + textPatientName.Text);
-            FindindReplace(wordApp, "<age>", textAge.Text);
+            if (comboBoxTitle.Text == "Baby")
+                FindindReplace(wordApp, "<age>", textAge.Text + " years " + textMonth.Text + " months");
+            else
+                FindindReplace(wordApp, "<age>", textAge.Text + " years ");
             FindindReplace(wordApp, "<gender>", comboBoxGender.Text);
             FindindReplace(wordApp, "<rep>", textReportNo.Text);
             FindindReplace(wordApp, "<ward>", textWardNo.Text);
@@ -221,17 +249,17 @@ namespace BaseHospitalHomagama
                 }
             }
             if (textClinicalDetails.Text=="")                                   //**
-                FindindReplace(wordApp, "<clinical>", replaceNewLines("-"));    //**
+                FindindReplace(wordApp, "<clinical>", replaceNewLines(""));    //**
             else                                                              //**
-                FindindReplace(wordApp, "<clinical>", replaceNewLines(textClinicalDetails.Text));//**
+                FindindReplace(wordApp, "<clinical>", replaceNewLines("\n\nClinical Details	: " + textClinicalDetails.Text));//**
             FindindReplace(wordApp, "<macro>", replaceNewLines(textMacroscopy.Text));
             FindindReplace(wordApp, "<micro>", replaceNewLines(textMicroscopy.Text));
             FindindReplace(wordApp, "<con>", replaceNewLines(textConclusion.Text));
-            FindindReplace(wordApp, "<date>", datePicker2.SelectedDate.Value.Date.Day + " / " + datePicker2.SelectedDate.Value.Date.Month + " / " + datePicker2.SelectedDate.Value.Date.Date.Year);
-            FindindReplace(wordApp, "<reqdate>", datePicker1.SelectedDate.Value.Date.Day + " / " + datePicker1.SelectedDate.Value.Date.Month + " / " + datePicker1.SelectedDate.Value.Date.Date.Year);//**
+           // FindindReplace(wordApp, "<date>", datePicker2.SelectedDate.Value.Date.Day + " / " + datePicker2.SelectedDate.Value.Date.Month + " / " + datePicker2.SelectedDate.Value.Date.Date.Year);
+            //FindindReplace(wordApp, "<reqdate>", datePicker1.SelectedDate.Value.Date.Day + " / " + datePicker1.SelectedDate.Value.Date.Month + " / " + datePicker1.SelectedDate.Value.Date.Date.Year);//**
             FindindReplace(wordApp, "<printdate>", DateTime.Today.Date.Day + " / " + DateTime.Today.Date.Month + " / " + DateTime.Today.Date.Year);//**
 
-            aDoc.SaveAs(ref saveAs, ref missing, ref missing, ref missing, ref missing, ref missing,
+            aDoc.SaveAs(ref saveAs, ref missing, ref missing, ref noPassword, ref missing, ref missing,
                 ref missing, ref missing, ref missing, ref missing, ref missing, ref missing, ref missing);
             wordApp.Quit();
 
@@ -315,6 +343,7 @@ namespace BaseHospitalHomagama
 
         private void buttonPrint_Click(object sender, RoutedEventArgs e)
         {
+            Stream FileStream = null;
             if (grid3.Visibility == System.Windows.Visibility.Visible)
             {
                 if ((Record)dataGrid1.SelectedItem == null)
@@ -334,6 +363,19 @@ namespace BaseHospitalHomagama
                     return;
                 }
             }
+
+            if (draftWorkingOn != null)
+            {
+                ((List<Record>)dataGridDraftsList.DataContext).Remove(draftWorkingOn);
+                draftWorkingOn = null;
+                DraftList list = new DraftList();
+                list.list = (List<Record>)dataGridDraftsList.DataContext;
+                FileStream = File.Create(draftsPath);
+                BinaryFormatter serializer = new BinaryFormatter();
+                serializer.Serialize(FileStream, list);
+                FileStream.Close();
+            }
+
             labelError.Foreground = Brushes.CadetBlue;
             labelError.Visibility = System.Windows.Visibility.Visible;
             labelError.Content = "Transferring report to the printer....";
@@ -353,6 +395,11 @@ namespace BaseHospitalHomagama
 
         private void methodForComboBoxTitle_SelectionChanged()
         {
+            if(textAge.Text == "0")
+                textAge.Text = "";
+            textMonth.Text = "";
+            textMonth.Visibility = System.Windows.Visibility.Hidden;
+            labelMonths.Visibility = System.Windows.Visibility.Hidden;
             switch (comboBoxTitle.SelectedIndex)
             {
                 case 0:
@@ -372,12 +419,22 @@ namespace BaseHospitalHomagama
                         comboBoxGender.SelectedIndex = 1;
                         break;
                     }
-                case 3:
-                case 6: // Rev, Baby
+                case 3://Rev 
                     {
                         comboBoxTitle.IsEditable = false;
                         comboBoxGender.IsEnabled = true;
                         comboBoxGender.SelectedIndex = 0;
+                        break;
+                    }
+                case 6: // Baby
+                    {
+                        comboBoxTitle.IsEditable = false;
+                        comboBoxGender.IsEnabled = true;
+                        comboBoxGender.SelectedIndex = 0;
+                        textAge.Text = "0";
+                        textMonth.Text = "0";
+                        textMonth.Visibility = System.Windows.Visibility.Visible;
+                        labelMonths.Visibility = System.Windows.Visibility.Visible;
                         break;
                     }
                 default: // other
@@ -393,6 +450,8 @@ namespace BaseHospitalHomagama
 
         private void buttonSave_Click(object sender, RoutedEventArgs e)
         {
+            Stream FileStream = null;
+
             grid1.IsEnabled = false;
             if (save())
             {
@@ -400,13 +459,28 @@ namespace BaseHospitalHomagama
                 labelError.Content = "Report saved....";
                 labelError.Visibility = System.Windows.Visibility.Visible;
                 timer1.Start();
+                
+                
+                if (draftWorkingOn != null)
+                {
+                    ((List<Record>)dataGridDraftsList.DataContext).Remove(draftWorkingOn);
+                    draftWorkingOn = null;
+                    DraftList list = new DraftList();
+                    list.list = (List<Record>)dataGridDraftsList.DataContext;
+                    FileStream = File.Create(draftsPath);
+                    BinaryFormatter serializer = new BinaryFormatter();
+                    serializer.Serialize(FileStream, list);
+                    FileStream.Close();
+                }
+
+
             }
             grid1.IsEnabled = true;
         }
 
         private void buttonEdit_Click(object sender, RoutedEventArgs e)
         {
-            writeEnable();
+            //writeEnable();
             textReportNo.IsEnabled = false;
             buttonDelete.Visibility = System.Windows.Visibility.Visible;
             buttonSave.Content = "Save";
@@ -420,7 +494,7 @@ namespace BaseHospitalHomagama
             labelError.Visibility = System.Windows.Visibility.Visible;
             if (textReportNo.Text == "")
             {
-                labelError.Content = "Report number not entered.";
+                labelError.Content = "Reference number not entered.";
                 return false;
             }
             if (textWardNo.Text == "")
@@ -441,8 +515,21 @@ namespace BaseHospitalHomagama
             int i;
             if (!int.TryParse(textAge.Text, out i))
             {
-                labelError.Content = "Entered age is not valid.";
+                labelError.Content = "Entered age(year) is not valid.";
                 return false;
+            }
+            if (comboBoxTitle.Text == "Baby")
+            {
+                if (! int.TryParse(textMonth.Text, out i))
+                {
+                    labelError.Content = "Entered age(month) is not valid.";
+                    return false;
+                }
+                else if (Int32.Parse(textMonth.Text) > 11 || Int32.Parse(textMonth.Text) < 0)
+                {
+                    labelError.Content = "Entered age(month) should be between 0 & 11";
+                    return false;
+                }
             }
 
             for (i = 0; i < speciLables.Count; i++)
@@ -476,11 +563,13 @@ namespace BaseHospitalHomagama
             }
 
             labelError.Visibility = System.Windows.Visibility.Hidden;
-
+            int months = 0;
+            if (comboBoxTitle.Text == "Baby")
+                months = Int32.Parse(textMonth.Text);
             database.connectToDatabase();
             if (!database.hasEntry(textReportNo.Text,"reportNo"))
-            {                                                                   //**
-                database.store(new Record(textReportNo.Text, textWardNo.Text, textBhtNo.Text, comboBoxTitle.Text, textPatientName.Text, Int32.Parse(textAge.Text), comboBoxGender.Text, textBoxListToStringArray(speciTexts), textMacroscopy.Text, textMicroscopy.Text, textConclusion.Text, dateToString(datePicker2.SelectedDate.Value), dateToString(datePicker1.SelectedDate.Value), comboBoxSeverity.Text, textClinicalDetails.Text));
+            {
+                database.store(new Record(textReportNo.Text, textWardNo.Text, textBhtNo.Text, comboBoxTitle.Text, textPatientName.Text, Int32.Parse(textAge.Text), months, comboBoxGender.Text, textBoxListToStringArray(speciTexts), textMacroscopy.Text, textMicroscopy.Text, textConclusion.Text, dateToString(datePicker2.SelectedDate.Value), dateToString(datePicker1.SelectedDate.Value), comboBoxSeverity.Text, textClinicalDetails.Text));
 
                 database.closeConnection();
                 updateSuggestions();
@@ -492,7 +581,7 @@ namespace BaseHospitalHomagama
                 {
                     database.deleteEntry(textReportNo.Text);
                                                                     //**
-                    database.store(new Record(textReportNo.Text, textWardNo.Text, textBhtNo.Text, comboBoxTitle.Text, textPatientName.Text, Int32.Parse(textAge.Text), comboBoxGender.Text, textBoxListToStringArray(speciTexts), textMacroscopy.Text, textMicroscopy.Text, textConclusion.Text, dateToString(datePicker2.SelectedDate.Value), dateToString(datePicker1.SelectedDate.Value), comboBoxSeverity.Text, textClinicalDetails.Text));
+                    database.store(new Record(textReportNo.Text, textWardNo.Text, textBhtNo.Text, comboBoxTitle.Text, textPatientName.Text, Int32.Parse(textAge.Text), months, comboBoxGender.Text, textBoxListToStringArray(speciTexts), textMacroscopy.Text, textMicroscopy.Text, textConclusion.Text, dateToString(datePicker2.SelectedDate.Value), dateToString(datePicker1.SelectedDate.Value), comboBoxSeverity.Text, textClinicalDetails.Text));
 
                     database.closeConnection();
                     updateSuggestions();
@@ -543,11 +632,12 @@ namespace BaseHospitalHomagama
         private void buttonClear_Click(object sender, RoutedEventArgs e)
         {
             clear();
+            draftWorkingOn = null;
         }
 
         private void clear()
         {
-            writeEnable();
+            //writeEnable();
             textReportNo.IsEnabled = true;
             buttonDelete.Visibility = System.Windows.Visibility.Hidden;
             if (!grid3.IsVisible)
@@ -558,6 +648,9 @@ namespace BaseHospitalHomagama
             textBhtNo.Text = "";
             textPatientName.Text = "";
             textAge.Text = "";
+            textMonth.Text = "";
+            textMonth.Visibility = System.Windows.Visibility.Hidden;
+            labelMonths.Visibility = System.Windows.Visibility.Hidden;
             comboBoxTitle.SelectedIndex = 0;
             comboBoxGender.SelectedIndex = 0;
             comboBoxSeverity.SelectedIndex = 0;//**
@@ -590,144 +683,49 @@ namespace BaseHospitalHomagama
 
             datePicker1.SelectedDate = DateTime.Today;
             datePicker2.SelectedDate = DateTime.Today;
+
+            
+
         }
 
         private void exitMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            Application.Current.Shutdown();
+            this.Close();
         }
 
         private void getPreviousReports_Click(object sender, RoutedEventArgs e)
         {
-            if (textReportNo.Text != "")//simple search
-            {
-                if (retrieveReport(textReportNo.Text))
-                {
-                    writeDisable();
-                    buttonSave.Content = "Edit";
-                    buttonSave.Click -= buttonSave_Click;
-                    buttonSave.Click += new RoutedEventHandler(buttonEdit_Click);
-                    menuItemGetReport.IsEnabled = false;
-                }
-                else
-                {
-                    MessageBox.Show("The reference number you entered did not match any report.\nPlease check the reference number and try again.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
-                }
-            }
-            else  // advanced search   
-            {
-                grid3.Visibility = System.Windows.Visibility.Visible;
-                menu.IsEnabled = false;
+            searchSpecimen.ItemsSource = spSg.specimen;
 
-                buttonSave.Content = "Edit";
-                buttonSave.Click -= buttonSave_Click;
-                buttonSave.Click += new RoutedEventHandler(buttonEditInPreview_Click);
+            searchRefNo.Text = "";
+            searchBht.Text = "";
+            searchName.Text = "";
+            searchWardNo.Text = "";
+            searchSpecimen.Text = "";
+            searchSeverity.SelectedIndex = -1;
+            checkBoxSearchPeriod.IsChecked = false;
+            searchFrom.IsEnabled = false;
+            searchTo.IsEnabled = false;
+            dataGrid1.DataContext = null;
 
-                buttonClear.Content = "Home";
-                buttonClear.Click -= buttonClear_Click;
-                buttonClear.Click += new RoutedEventHandler(buttonHome_Click);
 
-                dataGrid1.SelectedIndex = -1;
-                textPreview.Text = "";
 
-                topid = bottomid = 0;
-                hasmore = false;
+            grid3.Visibility = System.Windows.Visibility.Visible;
+            menu.IsEnabled = false;
 
-                if (textPatientName.Text != "")
-                {
-                    database.connectToDatabase();
-                    if (database.haspartEntry(textPatientName.Text, "patientName"))
-                    {
-                        selectedList = 2;
-                        dataGrid1.DataContext = database.getRecordListByPartOfName(textPatientName.Text, "patientName",1);
-                        database.closeConnection();
-                    }
-                    else
-                    {
-                        database.closeConnection();
-                        methodForbuttonHome_Click();
-                        MessageBox.Show("The Patient Name you entered did not match any report.\nPlease check and try again.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
-                    }
-                }
+            buttonSave.Content = "Edit";
+            buttonSave.Click -= buttonSave_Click;
+            buttonSave.Click += new RoutedEventHandler(buttonEditInPreview_Click);
 
-                else if (textBhtNo.Text != "")
-                {
-                    database.connectToDatabase();
-                    if (database.hasEntry(textBhtNo.Text, "bht"))
-                    {
-                        selectedList = 1;
-                        dataGrid1.DataContext = database.getReportbyfullVariable(textBhtNo.Text,"bht",1);
-                        database.closeConnection();                       
-                    }
-                    else
-                    {
-                        database.closeConnection();
-                        methodForbuttonHome_Click();
-                        MessageBox.Show("The BHT number you entered did not match any report.\nPlease check and try again.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
-                    }
-                }
+            buttonClear.Content = "Home";
+            buttonClear.Click -= buttonClear_Click;
+            buttonClear.Click += new RoutedEventHandler(buttonHome_Click);
 
-                else if (textSpecimen.Text != "")
-                {
-                    database.connectToDatabase();
-                    if (database.haspartEntry(textSpecimen.Text, "specimen"))
-                    {
-                        selectedList = 3;
-                        dataGrid1.DataContext = database.getRecordListByPartOfName(textSpecimen.Text, "specimen",1);
-                        database.closeConnection();
-                    }
-                    else
-                    {
-                        database.closeConnection();
-                        methodForbuttonHome_Click();
-                        MessageBox.Show("The Specimen you entered did not match any report.\nPlease check and try again.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
-                    }
-                }
+            dataGrid1.SelectedIndex = -1;
+            textPreview.Text = "";
+            labelSearchCount.Content = "";
 
-                else if (comboBoxSeverity.Text != "No significance")
-                {
-                    database.connectToDatabase();
-                    if (database.hasEntry(comboBoxSeverity.Text, "severity"))
-                    {
-                        selectedList = 4;
-                        dataGrid1.DataContext = database.getReportbyfullVariable(comboBoxSeverity.Text, "severity",1);
-                        database.closeConnection();
-                    }
-                    else
-                    {
-                        database.closeConnection();
-                        methodForbuttonHome_Click();
-                        MessageBox.Show("The Severity you entered did not match any report.\nPlease check and try again.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
-                    }
-                }
-
-                else
-                {
-                    database.connectToDatabase();
-                    if (database.hasanyEntry())
-                    {
-                        selectedList = 0;
-                        dataGrid1.DataContext = database.getAllRecordList(1);//1-next,0-back
-                        database.closeConnection();                        
-                    }
-                    else
-                    {
-                        database.closeConnection();
-                        methodForbuttonHome_Click();
-                        MessageBox.Show("There are no reports stored.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
-                    }
-                }
-
-                if (hasmore)
-                {
-                    buttonBack.Visibility = System.Windows.Visibility.Visible;
-                    buttonBack.IsEnabled = false;
-                    buttonNext.Visibility = System.Windows.Visibility.Visible;
-                    buttonNext.IsEnabled = true;
-                }
-                
-                dataGrid1.SelectionChanged+=new SelectionChangedEventHandler(DataGrid_SelectionChanged);
-            }
+            
         }
 
         private void buttonNext_Click(object sender, RoutedEventArgs e)
@@ -735,18 +733,18 @@ namespace BaseHospitalHomagama
             database.connectToDatabase();
             if (selectedList == 0)
                 dataGrid1.DataContext = database.getAllRecordList(1);
-            else if (selectedList == 1)
-                dataGrid1.DataContext = database.getReportbyfullVariable(textBhtNo.Text, "bht", 1);
-            else if (selectedList == 2)
-                dataGrid1.DataContext = database.getRecordListByPartOfName(textPatientName.Text, "patientName", 1);
-            else if (selectedList == 3)
-                dataGrid1.DataContext = database.getRecordListByPartOfName(textSpecimen.Text, "specimen", 1);
-            else if (selectedList == 4)
-                dataGrid1.DataContext = database.getReportbyfullVariable(comboBoxSeverity.Text, "severity", 1);
+            else
+                dataGrid1.DataContext = database.getRecordList(1);
             database.closeConnection();
             if (!hasmore)
                 buttonNext.IsEnabled = false;
-            buttonBack.IsEnabled = true;            
+            buttonBack.IsEnabled = true;
+            start = end + 1;
+            if (end + MainWindow.listsize <= total)
+                end += MainWindow.listsize;
+            else
+                end = total;
+            updateSearchCount();
         }
 
         private void buttonBack_Click(object sender, RoutedEventArgs e)
@@ -754,18 +752,16 @@ namespace BaseHospitalHomagama
             database.connectToDatabase();
             if (selectedList == 0)
                 dataGrid1.DataContext = database.getAllRecordList(0);
-            else if (selectedList == 1)
-                dataGrid1.DataContext = database.getReportbyfullVariable(textBhtNo.Text, "bht", 0);
-            else if (selectedList == 2)
-                dataGrid1.DataContext = database.getRecordListByPartOfName(textPatientName.Text, "patientName", 0);
-            else if (selectedList == 3)
-                dataGrid1.DataContext = database.getRecordListByPartOfName(textSpecimen.Text, "specimen", 3);
-            else if (selectedList == 4)
-                dataGrid1.DataContext = database.getReportbyfullVariable(comboBoxSeverity.Text, "severity", 0);
+            else
+                dataGrid1.DataContext = database.getRecordList(0);
+            
             database.closeConnection();
             if (!hasmore)
                 buttonBack.IsEnabled = false;
-            buttonNext.IsEnabled = true;            
+            buttonNext.IsEnabled = true;
+            start -= MainWindow.listsize;
+            end = start + MainWindow.listsize - 1;
+            updateSearchCount();
         }
 
         private void buttonHome_Click(object sender, RoutedEventArgs e)
@@ -779,7 +775,6 @@ namespace BaseHospitalHomagama
         {
             grid3.Visibility = System.Windows.Visibility.Hidden;
             clear();
-            dataGrid1.SelectionChanged -= DataGrid_SelectionChanged;
             buttonClear.Content = "Clear";
             buttonClear.Click -= buttonHome_Click;
             buttonClear.Click += new RoutedEventHandler(buttonClear_Click);
@@ -788,20 +783,19 @@ namespace BaseHospitalHomagama
 
         private void buttonEditInPreview_Click(object sender, RoutedEventArgs e)
         {
-            textReportNo.IsEnabled = false;
-            buttonDelete.Visibility = System.Windows.Visibility.Visible;
             if ((Record)dataGrid1.SelectedItem != null)
             {
+                textReportNo.IsEnabled = false;
+                buttonDelete.Visibility = System.Windows.Visibility.Visible;
                 grid3.Visibility = System.Windows.Visibility.Hidden;
-                dataGrid1.SelectionChanged -= DataGrid_SelectionChanged; 
                 buttonClear.Content = "Clear"; 
                 buttonClear.Click -= buttonHome_Click; 
                 buttonClear.Click += new RoutedEventHandler(buttonClear_Click);
-                writeEnable();
+                //writeEnable();
                 buttonSave.Content = "Save";
                 buttonSave.Click -= buttonEditInPreview_Click;
                 buttonSave.Click += new RoutedEventHandler(buttonSave_Click);
-                dataGrid1.DataContext = null;
+                //dataGrid1.DataContext = null;
                 buttonNext.Visibility = System.Windows.Visibility.Hidden;
                 buttonBack.Visibility = System.Windows.Visibility.Hidden;
             }
@@ -811,12 +805,17 @@ namespace BaseHospitalHomagama
             }
         }
 
+        private void updateSearchCount()
+        {
+            labelSearchCount.Content = "Showing "+start+" - "+end+" out of "+total+" total results";
+        }
 
-        private void writeDisable()
+        /*private void writeDisable()
         {
             textReportNo.IsReadOnly = true; 
             textWardNo.IsReadOnly = true; textBhtNo.IsReadOnly = true;
             comboBoxTitle.IsEnabled = false; textPatientName.IsReadOnly = true; textAge.IsReadOnly = true;
+            textMonth.IsReadOnly = true;
             comboBoxGender.IsEnabled = false;
             for (int i = 0; i < speciTexts.Count; i++)
             {
@@ -828,13 +827,14 @@ namespace BaseHospitalHomagama
             comboBoxSeverity.IsEnabled = false;
             datePicker1.IsEnabled = false;
             datePicker2.IsEnabled = false;
-        }
+        }*/
 
-        private void writeEnable()
+        /*private void writeEnable()
         {
             textReportNo.IsReadOnly = false; 
             textWardNo.IsReadOnly = false; textBhtNo.IsReadOnly = false;
             comboBoxTitle.IsEnabled = true; textPatientName.IsReadOnly = false; textAge.IsReadOnly = false;
+            textMonth.IsReadOnly = false;
             methodForComboBoxTitle_SelectionChanged();
             for (int i = 0; i < speciTexts.Count; i++)
             {
@@ -846,7 +846,7 @@ namespace BaseHospitalHomagama
             comboBoxSeverity.IsEnabled = true;
             datePicker1.IsEnabled = true;
             datePicker2.IsEnabled = true;
-        }
+        }*/
 
 
         private void updateSuggestions()
@@ -953,12 +953,13 @@ namespace BaseHospitalHomagama
             database.closeConnection();
             if (templates == null)
             {
-                MessageBox.Show("Sorry No templates found, relates to this specimen", "", MessageBoxButton.OK, MessageBoxImage.Stop);
+                MessageBox.Show("No templates found related to this specimen", "Sorry!", MessageBoxButton.OK, MessageBoxImage.Stop);
                 return;
             }
             this.IsEnabled = false;
             
             wintemp = new WindowTemplates();
+            MainWindow.template = "";
             wintemp.Show();
             for (int i = 0; i < templates.Length; i++)
                 wintemp.listBox1.Items.Add(new UniqueListItemObject(templates[i]));
@@ -967,7 +968,7 @@ namespace BaseHospitalHomagama
 
         void timer2_Elapsed(object sender, EventArgs e)
         {
-            if (template != null || template != "")
+            if (template != "")
             {
                 if (templField == "clinicalDetails")
                     textClinicalDetails.Text = template;
@@ -1016,9 +1017,331 @@ namespace BaseHospitalHomagama
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if(wintemp!=null)
+            if (wintemp != null)
                 wintemp.Close();
+
+            if (MessageBox.Show("Are you sure that you want to exit? All unsaved data will be lost.", "Confim!", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+            }
+            else
+                e.Cancel = true;
         }
+
+        private void searchRefNo_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (searchRefNo.Text == "")
+            {
+                searchBht.IsEnabled = true;
+                searchName.IsEnabled = true;
+                searchWardNo.IsEnabled = true;
+                searchSpecimen.IsEnabled = true;
+                searchSeverity.IsEnabled = true;
+                checkBoxSearchPeriod.IsEnabled = true;
+                checkBoxSearchPeriod.IsChecked = false;
+
+            }
+            else if(searchRefNo.Text.Length==1)
+            {
+                searchBht.IsEnabled = false;
+                searchName.IsEnabled = false;
+                searchWardNo.IsEnabled = false;
+                searchSpecimen.IsEnabled = false;
+                searchSeverity.IsEnabled = false;
+                checkBoxSearchPeriod.IsEnabled = false;
+                checkBoxSearchPeriod.IsChecked = false;
+            }
+
+        }
+
+        private void buttonSearch_Click(object sender, RoutedEventArgs e)
+        {
+            int count=0;
+            topdate = bottomdate = "";
+            topid = bottomid = 0;
+            hasmore = false;
+            MainWindow.searchPhrase = "";
+
+            textPreview.Text = "";
+
+            database.connectToDatabase();
+
+            if (searchRefNo.Text == "")
+            {
+                
+                if (searchWardNo.Text != "")
+                {
+                    if (count != 0)
+                        MainWindow.searchPhrase += " AND";
+                    MainWindow.searchPhrase += " ward = '" + searchWardNo.Text + "'";
+                    count++;
+                }
+                if (searchBht.Text != "")
+                {
+                    if (count != 0)
+                        MainWindow.searchPhrase += " AND";
+                    MainWindow.searchPhrase += " bht = '" + searchBht.Text + "'";
+                    count++;
+                }
+                if (searchName.Text != "")
+                {
+                    if (count != 0)
+                        MainWindow.searchPhrase += " AND";
+                    MainWindow.searchPhrase += " patientName LIKE '%" + searchName.Text + "%'";
+                    count++;
+                }
+                if (searchSpecimen.Text != "")
+                {
+                    if (count != 0)
+                        MainWindow.searchPhrase += " AND";
+                    MainWindow.searchPhrase += " specimen LIKE '%" + searchSpecimen.Text + "%'";
+                    count++;
+                }
+
+                if (searchSeverity.SelectedIndex != -1)
+                {
+                    if (count != 0)
+                        MainWindow.searchPhrase += " AND";
+                    MainWindow.searchPhrase += " severity = '" + searchSeverity.Text + "'";
+                    count++;
+                }
+
+                if (checkBoxSearchPeriod.IsChecked==true)
+                {
+                    if (count != 0)
+                        MainWindow.searchPhrase += " AND";
+                    MainWindow.searchPhrase += " testDate >= '" + dateToString(searchFrom.SelectedDate.Value) + "' AND testDate <= '" + dateToString(searchTo.SelectedDate.Value) + "'";
+                    count++;
+                }
+
+                if (count != 0)
+                {
+                    selectedList = 1;
+                    dataGrid1.DataContext = database.getRecordList(1);//1-next,0-back
+                    if (dataGrid1.Items.Count == 0)
+                        MessageBox.Show("There are no reports that satisfy the conditions.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                }
+                else
+                {
+
+                    if (database.hasanyEntry())
+                    {
+                        selectedList = 0;
+                        dataGrid1.DataContext = database.getAllRecordList(1);//1-next,0-back
+                    }
+                    else
+                    {
+                        methodForbuttonHome_Click();
+                        MessageBox.Show("There are no reports stored.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                    }
+                }
+            }
+            else
+            {
+                MainWindow.searchPhrase = " reportNo = '" + searchRefNo.Text + "'";
+                selectedList = 1;
+                dataGrid1.DataContext = database.getRecordList(1);//1-next,0-back
+                if(dataGrid1.Items.Count==0)
+                    MessageBox.Show("There are no reports that satisfy the conditions.", "Report not found!", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+            }
+
+            if (hasmore)
+            {
+                buttonBack.Visibility = System.Windows.Visibility.Visible;
+                buttonBack.IsEnabled = false;
+                buttonNext.Visibility = System.Windows.Visibility.Visible;
+                buttonNext.IsEnabled = true;
+            }
+            else
+            {
+                buttonBack.Visibility = System.Windows.Visibility.Hidden;
+                buttonNext.Visibility = System.Windows.Visibility.Hidden;
+            }
+
+            total=database.count();
+            if (total != 0)
+            {
+                start = 1;
+                if (start + MainWindow.listsize - 1 <= total)
+                    end = start + MainWindow.listsize - 1;
+                else
+                    end = total;
+                database.closeConnection();
+
+                updateSearchCount();
+            }
+            else
+                labelSearchCount.Content="";
+
+        }
+
+        private void buttonClearSearch_Click(object sender, RoutedEventArgs e)
+        {
+            searchRefNo.Text = "";
+            searchBht.Text = "";
+            searchName.Text = "";
+            searchWardNo.Text = "";
+            searchSpecimen.Text = "";
+            searchSeverity.SelectedIndex = -1;
+            dataGrid1.DataContext = null;
+            textPreview.Text="";
+            labelSearchCount.Content = "";
+            checkBoxSearchPeriod.IsChecked = false;
+            buttonNext.Visibility = System.Windows.Visibility.Hidden;
+            buttonBack.Visibility = System.Windows.Visibility.Hidden;
+        }
+
+        private void checkBoxSearchPeriod_Checked(object sender, RoutedEventArgs e)
+        {
+            searchFrom.IsEnabled = true;
+            searchTo.IsEnabled = true;
+            searchFrom.SelectedDate = DateTime.Today;
+            searchTo.SelectedDate = DateTime.Today;
+        }
+
+        private void checkBoxSearchPeriod_Unchecked(object sender, RoutedEventArgs e)
+        {
+            searchFrom.IsEnabled = false;
+            searchTo.IsEnabled = false;
+        }
+
+        private void buttonSaveDraft_Click(object sender, RoutedEventArgs e)
+        {
+            if (textPatientName.Text != "")
+            {
+                DraftList list;
+                Stream FileStream = null;
+                BinaryFormatter deserializer;
+                if (dataGridDraftsList.DataContext == null)
+                {
+                    try
+                    {
+                        FileStream = File.OpenRead(draftsPath);
+                        deserializer = new BinaryFormatter();
+                        list = (DraftList)deserializer.Deserialize(FileStream);
+                        FileStream.Close();
+                    }
+                    catch
+                    {
+                        if (FileStream != null)
+                        {
+                            FileStream.Close();
+                        }
+                        list = new DraftList();
+                    }
+                }
+                else
+                {
+                    list = new DraftList();
+                    list.list = (List<Record>)dataGridDraftsList.DataContext;
+                }
+
+                int months = 0;
+                if (comboBoxTitle.Text == "Baby")
+                    Int32.TryParse(textMonth.Text, out months);
+                int years = 0;
+                Int32.TryParse(textAge.Text, out years);
+
+                list.list.Add(new Record(textReportNo.Text, textWardNo.Text, textBhtNo.Text, comboBoxTitle.Text, textPatientName.Text, years, months, comboBoxGender.Text, textBoxListToStringArray(speciTexts), textMacroscopy.Text, textMicroscopy.Text, textConclusion.Text, dateToString(datePicker2.SelectedDate.Value), dateToString(datePicker1.SelectedDate.Value), comboBoxSeverity.Text, textClinicalDetails.Text));
+                if (draftWorkingOn != null)
+                {
+                    list.list.Remove(draftWorkingOn);
+                    draftWorkingOn = null;
+                }
+                FileStream = File.Create(draftsPath);
+                BinaryFormatter serializer = new BinaryFormatter();
+                serializer.Serialize(FileStream, list);
+                FileStream.Close();
+
+                labelError.Foreground = Brushes.CadetBlue;
+                labelError.Content = "Draft Saved successfully";
+                labelError.Visibility = System.Windows.Visibility.Visible;
+                timer1.Start();
+            }
+            else
+                MessageBox.Show("Can't save a draft without a name.", "Draft Not Saved", MessageBoxButton.OK);
+        }
+
+        private void button1_Click(object sender, RoutedEventArgs e)
+        {
+            gridDraftsList.Visibility = System.Windows.Visibility.Hidden;
+            menu.IsEnabled = true;
+        }
+
+        private void retrieveDraftMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            Stream FileStream;
+            BinaryFormatter deserializer;
+            try
+            {
+                FileStream = File.OpenRead(draftsPath);
+                deserializer = new BinaryFormatter();
+                dataGridDraftsList.DataContext = (List<Record>)(((DraftList)deserializer.Deserialize(FileStream)).list);
+                FileStream.Close();
+                if (dataGridDraftsList.Items.Count != 0)
+                {
+                    gridDraftsList.Visibility = System.Windows.Visibility.Visible;
+                    menu.IsEnabled = false;
+                }
+                else
+                    MessageBox.Show("There are no drafts saved.", "Empty!", MessageBoxButton.OK, MessageBoxImage.Stop);
+            }
+            catch
+            {
+                MessageBox.Show("Error in retrieving drafts.", "Error", MessageBoxButton.OK, MessageBoxImage.Stop);
+            }
+        }
+
+        private void dataGridDraftsList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            draftWorkingOn=(Record)dataGridDraftsList.SelectedItem;
+            fillFields(draftWorkingOn);
+            gridDraftsList.Visibility = System.Windows.Visibility.Hidden;
+            menu.IsEnabled = false;
+        }
+
+        private void buttonDeleteDraft_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show("Are you sure that you want to delete the selected draft?", "", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                Stream FileStream;
+                ((List<Record>)dataGridDraftsList.DataContext).Remove((Record)dataGridDraftsList.SelectedItem);
+                DraftList list = new DraftList();
+                list.list = (List<Record>)dataGridDraftsList.DataContext;
+                FileStream = File.Create(draftsPath);
+                BinaryFormatter serializer = new BinaryFormatter();
+                serializer.Serialize(FileStream, list);
+                FileStream.Close();
+                dataGridDraftsList.Items.Refresh();
+            }
+        }
+
+        private void buttonLogin_Click(object sender, RoutedEventArgs e)
+        {
+            login();
+        }
+
+        private void login()
+        {
+            if (textBoxPassword.Password == "homagama")
+            {
+                gridLogin.Visibility = System.Windows.Visibility.Hidden;
+            }
+            else
+            {
+                MessageBox.Show("The password you entered is incorrect. Please try again", "Authentication failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                textBoxPassword.Password = "";
+                textBoxPassword.Focus();
+            }
+        }
+
+        private void textBoxPassword_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                login();
+            }
+        }
+
                
     }
 
@@ -1044,7 +1367,7 @@ namespace BaseHospitalHomagama
 
         public void store()
         {
-            Stream stream = File.Open("specimenList.cse", FileMode.Create);
+            Stream stream = File.Open(MainWindow.specimensPath, FileMode.Create);
             BinaryFormatter bformatter = new BinaryFormatter();
 
             Console.WriteLine("Writing serialized data into file");
@@ -1054,7 +1377,7 @@ namespace BaseHospitalHomagama
 
         public static specimenSuggestions retrieve()
         {
-            Stream stream = File.Open("specimenList.cse", FileMode.Open);
+            Stream stream = File.Open(MainWindow.specimensPath, FileMode.Open);
             BinaryFormatter bformatter = new BinaryFormatter();
 
             Console.WriteLine("Reading serialized data from file");
@@ -1065,6 +1388,13 @@ namespace BaseHospitalHomagama
 
     }
 
+    [Serializable()]
+    public class DraftList
+    {
+        public List<Record> list = new List<Record>();
+    }
+
+    [Serializable()]
     public class Record
     {
         public Boolean complete = false;
@@ -1079,18 +1409,21 @@ namespace BaseHospitalHomagama
         public String Ward { set; get; }
         public String title;
         public String[] specimenArray;
-        public int Age { set; get; }
+        public int years;
+        public int months;
+        public String Age { set; get; }
         public String Specimens { set; get; }
         public String requestDate;                  //**
         public String severity { set; get; }        //**
         public String clinicalDetails;              //**
 
-        public Record(String reportNo, String ward, String bht, String title, String name, int age, String gender, String[] specimen, String macroscopy, String microscopy,
+        public Record(String reportNo, String ward, String bht, String title, String name, int years, int months, String gender, String[] specimen, String macroscopy, String microscopy,
                                                         String conclusion, String date, String requestDate, String severity, String clinicalDetails)
         {                                                                           //**
 
             this.Name = name;
-            this.Age = age;
+            this.years = years;
+            this.months = months;
             this.Gender = gender;
             this.TestDate = date;
             this.macroscopy = macroscopy;
@@ -1113,6 +1446,17 @@ namespace BaseHospitalHomagama
                 if (i < specimen.Length - 1)
                     Specimens += '\n';
             }
+
+            this.Age = "";
+            if (this.years != 0)
+            {
+                this.Age += this.years + " y ";
+            }
+            if (this.months != 0)
+            {
+                this.Age += this.months + " m";
+            }
+
         }
         public static String[] StringToArray(String line)
         {
@@ -1145,7 +1489,7 @@ namespace BaseHospitalHomagama
 
         public void connectToDatabase()
         {
-            string ConnStr = @"Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + databasePath + ";Persist Security Info=False;";
+            string ConnStr = @"Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + databasePath + ";Persist Security Info=False;Jet OLEDB:Database Password=CSE'10_CSR";
             MyConn = new OleDbConnection(ConnStr);
             MyConn.Open();
         }
@@ -1155,7 +1499,7 @@ namespace BaseHospitalHomagama
             MyConn.Close();
         }
 
-        public Record getReport(String refNo) //**
+       /* public Record getReport(String refNo) //**
         {
             string StrCmd = "SELECT * FROM Table1 WHERE reportNo = '" + refNo + "'";
             OleDbCommand Cmd = new OleDbCommand(StrCmd, MyConn);
@@ -1169,7 +1513,7 @@ namespace BaseHospitalHomagama
             {
 
                 String name, gender, specimen, date, macroscopy, microscopy, conclusion, reportNo, bht, ward, title,requestDate, severity, clinicalDetails;
-                int age;                                                                                            //**
+                int years,months;                                                                                            //**
                 ObjReader.Read();
                 name = ObjReader["patientName"].ToString();
                 gender = ObjReader["gender"].ToString();
@@ -1185,8 +1529,9 @@ namespace BaseHospitalHomagama
                 requestDate = ObjReader["requestDate"].ToString();  //**
                 severity = ObjReader["severity"].ToString();            //**
                 clinicalDetails = ObjReader["clinicalDetails"].ToString();  //**
-                age = Int32.Parse(ObjReader["age"].ToString());
-                Record p = new Record(reportNo, ward, bht, title, name, age, gender, Record.StringToArray(specimen), macroscopy, microscopy, conclusion, date, requestDate, severity, clinicalDetails);
+                years = Int32.Parse(ObjReader["age"].ToString());
+                months = Int32.Parse(ObjReader["months"].ToString());
+                Record p = new Record(reportNo, ward, bht, title, name, years, gender, Record.StringToArray(specimen), macroscopy, microscopy, conclusion, date, requestDate, severity, clinicalDetails,months);
                 p.complete = true;                                                                              //**
                 return p;
             }
@@ -1204,7 +1549,7 @@ namespace BaseHospitalHomagama
             }
             return refNoSet;
         }
-
+        */
         public List<Record> getAllRecordList(int option)
         {
             List<Record> refNoSet = new List<Record>();
@@ -1213,16 +1558,16 @@ namespace BaseHospitalHomagama
             {
                 case (0):
                     {
-                        StrCmd = "SELECT top " + (MainWindow.listsize+1) + " reportNo, patientName,gender, ward, bht, age, specimen,testDate,severity FROM Table1 where ID > " + MainWindow.topid + " order by ID ASC";
+                        StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, months, specimen,testDate,severity FROM Table1 where testdate >= '" + MainWindow.topdate + "'  AND iif(testdate = '" + MainWindow.topdate + "' ,dateid > " + MainWindow.topid + ",1) order by testdate asc,dateid ASC";
                         break;
                     }
                 case(1):
                 default:
                     {
-                        if (MainWindow.bottomid != 0)
-                            StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, specimen,testDate,severity FROM Table1 where ID <= " + MainWindow.bottomid + " order by ID DESC";
+                        if (MainWindow.bottomdate != "")
+                            StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, months, specimen,testDate,severity FROM Table1 where testdate <= '" + MainWindow.bottomdate + "' AND iif(testdate = '" + MainWindow.bottomdate + "' ,dateid <= " + MainWindow.bottomid + ",1) order by testdate desc,dateid DESC";
                         else
-                            StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, specimen,testDate,severity FROM Table1 order by ID DESC";
+                            StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, months, specimen,testDate,severity FROM Table1 order by testdate desc, dateid desc";
                         break;
                     }
             }
@@ -1230,7 +1575,7 @@ namespace BaseHospitalHomagama
             OleDbDataReader ObjReader = Cmd.ExecuteReader();
             String name, gender, date, reportNo, bht, ward, severity;
             String[] specimen;
-            int age;
+            int age, months;
 
             while (ObjReader.Read())
             {
@@ -1242,12 +1587,14 @@ namespace BaseHospitalHomagama
                     reportNo = ObjReader["reportNo"].ToString();
                     severity = ObjReader["severity"].ToString();        //**
                     age = Int32.Parse(ObjReader["age"].ToString());
+                    months = Int32.Parse(ObjReader["months"].ToString());
                     specimen = Record.StringToArray(ObjReader["specimen"].ToString());
-                    refNoSet.Add(new Record(reportNo, ward, bht, "", name, age, gender, specimen, "", "", "", date, "", severity, ""));
+                    refNoSet.Add(new Record(reportNo, ward, bht, "", name, age, months, gender, specimen, "", "", "", date, "", severity, ""));
             }
             if (refNoSet.Count > 0)
             {
-                int temp = MainWindow.topid;
+                int tmp = MainWindow.topid;
+                string temp = MainWindow.topdate;
                 string StrCmd2;
                 if(option==1)
                     StrCmd2= "SELECT * FROM Table1 WHERE reportNo = '" + refNoSet.Last().Reference_No + "'";
@@ -1265,7 +1612,8 @@ namespace BaseHospitalHomagama
                 else
                 {
                     ObjReader2.Read();
-                    MainWindow.bottomid = Int32.Parse(ObjReader2["ID"].ToString());
+                    MainWindow.bottomdate = ObjReader2["testdate"].ToString();
+                    MainWindow.bottomid = Int32.Parse(ObjReader2["dateid"].ToString());
                     OleDbCommand Cmd3 = new OleDbCommand(StrCmd3, MyConn);
                     OleDbDataReader ObjReader3 = Cmd3.ExecuteReader();
                     if (ObjReader3 == null)
@@ -1277,7 +1625,8 @@ namespace BaseHospitalHomagama
                     else
                     {
                         ObjReader3.Read();
-                        MainWindow.topid = Int32.Parse(ObjReader3["ID"].ToString());
+                        MainWindow.topdate = ObjReader3["testdate"].ToString();
+                        MainWindow.topid = Int32.Parse(ObjReader3["dateid"].ToString());
                     }
                     if (refNoSet.Count == (MainWindow.listsize+1))
                     {
@@ -1288,8 +1637,10 @@ namespace BaseHospitalHomagama
                         MainWindow.hasmore = false;
                     if (option == 0)
                     {
+                        MainWindow.topdate = MainWindow.bottomdate;
+                        MainWindow.bottomdate = temp;
                         MainWindow.topid = MainWindow.bottomid;
-                        MainWindow.bottomid = temp;
+                        MainWindow.bottomid = tmp;
                         refNoSet.Reverse();                        
                     }
                     return refNoSet;
@@ -1302,6 +1653,111 @@ namespace BaseHospitalHomagama
             }
         }
 
+        public List<Record> getRecordList(int option)
+        {
+            List<Record> refNoSet = new List<Record>();
+            string StrCmd;
+            switch (option)
+            {
+                case (0):
+                    {
+                        StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, months, specimen,testDate,severity FROM Table1 where testdate >= '" + MainWindow.topdate + "' AND iif(testdate = '" + MainWindow.topdate + "' ,dateid > " + MainWindow.topid + ",1) AND" + MainWindow.searchPhrase + " order by testdate asc,dateid ASC";
+                        break;
+                    }
+                case (1):
+                default:
+                    {
+                        if (MainWindow.bottomdate != "")
+                            StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, months, specimen,testDate,severity FROM Table1 where testdate <= '" + MainWindow.bottomdate + "' AND iif(testdate = '" + MainWindow.bottomdate + "' ,dateid <= " + MainWindow.bottomid + ",1) AND" + MainWindow.searchPhrase + " order by testdate desc,dateid DESC";
+                        else
+                            StrCmd = "SELECT top " + (MainWindow.listsize + 1) + " reportNo, patientName,gender, ward, bht, age, months, specimen,testDate,severity FROM Table1 WHERE " + MainWindow.searchPhrase + " order by testdate desc, dateid desc";
+                        break;
+                    }
+            }
+            OleDbCommand Cmd = new OleDbCommand(StrCmd, MyConn);
+            OleDbDataReader ObjReader = Cmd.ExecuteReader();
+            String name, gender, date, reportNo, bht, ward, severity;
+            String[] specimen;
+            int age, months;
+
+            while (ObjReader.Read())
+            {
+                name = ObjReader["patientName"].ToString();
+                gender = ObjReader["gender"].ToString();
+                ward = ObjReader["ward"].ToString();
+                bht = ObjReader["bht"].ToString();
+                date = ObjReader["testDate"].ToString();
+                reportNo = ObjReader["reportNo"].ToString();
+                severity = ObjReader["severity"].ToString();        //**
+                age = Int32.Parse(ObjReader["age"].ToString());
+                months = Int32.Parse(ObjReader["months"].ToString());
+                specimen = Record.StringToArray(ObjReader["specimen"].ToString());
+                refNoSet.Add(new Record(reportNo, ward, bht, "", name, age, months, gender, specimen, "", "", "", date, "", severity, ""));
+            }
+            if (refNoSet.Count > 0)
+            {
+                int tmp = MainWindow.topid;
+                string temp = MainWindow.topdate;
+                string StrCmd2;
+                if (option == 1)
+                    StrCmd2 = "SELECT * FROM Table1 WHERE reportNo = '" + refNoSet.Last().Reference_No + "'";
+                else
+                    StrCmd2 = "SELECT * FROM Table1 WHERE reportNo = '" + refNoSet[(MainWindow.listsize - 1)].Reference_No + "'";
+                string StrCmd3 = "SELECT * FROM Table1 WHERE reportNo = '" + refNoSet.First().Reference_No + "'";
+                OleDbCommand Cmd2 = new OleDbCommand(StrCmd2, MyConn);
+                OleDbDataReader ObjReader2 = Cmd2.ExecuteReader();
+                if (ObjReader2 == null)
+                {
+                    MainWindow.hasmore = false;
+                    Console.WriteLine();////////////////////////////////////error in connecting to the database
+                    return null;
+                }
+                else
+                {
+                    ObjReader2.Read();
+                    MainWindow.bottomdate = ObjReader2["testdate"].ToString();
+                    MainWindow.bottomid = Int32.Parse(ObjReader2["dateid"].ToString());
+                    OleDbCommand Cmd3 = new OleDbCommand(StrCmd3, MyConn);
+                    OleDbDataReader ObjReader3 = Cmd3.ExecuteReader();
+                    if (ObjReader3 == null)
+                    {
+                        MainWindow.hasmore = false;
+                        Console.WriteLine();////////////////////////////////////error in connecting to the database
+                        return null;
+                    }
+                    else
+                    {
+                        ObjReader3.Read();
+                        MainWindow.topdate = ObjReader3["testdate"].ToString();
+                        MainWindow.topid = Int32.Parse(ObjReader3["dateid"].ToString());
+                    }
+                    if (refNoSet.Count == (MainWindow.listsize + 1))
+                    {
+                        MainWindow.hasmore = true;
+                        refNoSet.Remove(refNoSet.Last());
+                    }
+                    else
+                        MainWindow.hasmore = false;
+                    if (option == 0)
+                    {
+                        MainWindow.topdate = MainWindow.bottomdate;
+                        MainWindow.bottomdate = temp;
+                        MainWindow.topid = MainWindow.bottomid;
+                        MainWindow.bottomid = tmp;
+                        refNoSet.Reverse();
+                    }
+                    return refNoSet;
+                }
+            }
+            else
+            {
+                MainWindow.hasmore = false;
+                return null;
+            }
+        }
+
+
+        /*
         public List<Record> getRecordListByPartOfName(String partOfValue,String column, int option)
         {
             List<Record> refNoSet = new List<Record>();
@@ -1340,7 +1796,7 @@ namespace BaseHospitalHomagama
                 severity = ObjReader["severity"].ToString();        //**
                 age = Int32.Parse(ObjReader["age"].ToString());
                 specimen = Record.StringToArray(ObjReader["specimen"].ToString());
-                refNoSet.Add(new Record(reportNo, ward, bht, "", name, age, gender, specimen, "", "", "", date, "", severity, ""));
+                refNoSet.Add(new Record(reportNo, ward, bht, "", name, age, gender, specimen, "", "", "", date, "", severity, "",0));
             }
             if (refNoSet.Count > 0)
             {
@@ -1424,7 +1880,7 @@ namespace BaseHospitalHomagama
             OleDbDataReader ObjReader = Cmd.ExecuteReader();
             String name, gender, date, reportNo, bht, ward, severity;
             String[] specimen;
-            int age;
+            int age,months;
 
             while (ObjReader.Read())
             {
@@ -1436,8 +1892,9 @@ namespace BaseHospitalHomagama
                     reportNo = ObjReader["reportNo"].ToString();
                     severity = ObjReader["severity"].ToString();        //**
                     age = Int32.Parse(ObjReader["age"].ToString());
+                    months = Int32.Parse(ObjReader["months"].ToString());
                     specimen = Record.StringToArray(ObjReader["specimen"].ToString());
-                    refNoSet.Add(new Record(reportNo, ward, bht, "", name, age, gender, specimen, "", "", "", date,"",severity,""));                
+                    refNoSet.Add(new Record(reportNo, ward, bht, "", name, age, gender, specimen, "", "", "", date,"",severity,"",0));                
             }
             if (refNoSet.Count > 0)
             {
@@ -1495,7 +1952,7 @@ namespace BaseHospitalHomagama
                 return null;
             }
         }
-
+        */
         public void getTheRest(Record record)
         {
             string StrCmd = "SELECT  title, macroscopy, microscopy, conclusion, requestDate, clinicalDetails FROM Table1  WHERE reportNo = '" + record.Reference_No + "'";
@@ -1512,9 +1969,18 @@ namespace BaseHospitalHomagama
         }
 
         public void store(Record record)
-        {                                                                               //**
-            OleDbCommand Cmd = new OleDbCommand("INSERT INTO Table1 ( reportNo, ward,bht,title, patientName, age, gender, specimen,macroscopy, microscopy, conclusion,testDate,requestDate, severity, clinicalDetails ) VALUES ('" + record.Reference_No + "'," + "'" + record.Ward + "'," + "'" + record.BHT + "'," + "'" + record.title + "'," + "'" + record.Name + "',"
-                + "'" + record.Age + "'," + "'" + record.Gender + "'," + "'" + Record.ArrayToString(record.specimenArray) + "'," + "'" + record.macroscopy + "'," + "'" + record.microscopy + "'," + "'" + record.conclusion + "'," + "'" + record.TestDate + "'," + "'" + record.requestDate + "'," + "'" + record.severity + "'," + "'" + record.clinicalDetails + "')", MyConn); ;
+        {
+            int dateid = 0;
+            if (hasEntry(record.TestDate, "testdate"))
+            {
+                string StrCmd = "SELECT top 1 dateid FROM Table1 WHERE testdate = '" + record.TestDate + "' order by testdate desc";
+                OleDbCommand Cmd1 = new OleDbCommand(StrCmd, MyConn);                            //**
+                OleDbDataReader ObjReader = Cmd1.ExecuteReader();
+                ObjReader.Read();
+                dateid = Int32.Parse(ObjReader["dateid"].ToString()) + 1;
+            }
+            OleDbCommand Cmd = new OleDbCommand("INSERT INTO Table1 ( reportNo, ward,bht,title, patientName, age, gender, specimen,macroscopy, microscopy, conclusion,testDate,requestDate, severity, clinicalDetails, dateid, months ) VALUES ('" + record.Reference_No + "'," + "'" + record.Ward + "'," + "'" + record.BHT + "'," + "'" + record.title + "'," + "'" + record.Name + "',"
+                + "'" + record.years + "'," + "'" + record.Gender + "'," + "'" + Record.ArrayToString(record.specimenArray) + "'," + "'" + record.macroscopy + "'," + "'" + record.microscopy + "'," + "'" + record.conclusion + "'," + "'" + record.TestDate + "'," + "'" + record.requestDate + "'," + "'" + record.severity + "'," + "'" + record.clinicalDetails + "'," + "'" + dateid + "'," + "'" + record.months + "')", MyConn); ;
             //OleDbCommand Cmd = new OleDbCommand("INSERT INTO Table1 ( name) VALUES ('" +record.microscopy + "')", MyConn); 
 
             Cmd.ExecuteNonQuery();
@@ -1531,7 +1997,7 @@ namespace BaseHospitalHomagama
             cmdCheck.ExecuteNonQuery();
             return true;
         }
-
+        /*
         public bool haspartEntry(String value, String column)
         {            
             String StrCmd = "SELECT reportNo, patientName,gender, ward, bht, age, specimen,testDate,severity FROM Table1";
@@ -1544,7 +2010,7 @@ namespace BaseHospitalHomagama
                     return true;
             }
             return false;
-        }
+        }*/
 
         public bool hasanyEntry()
         {
@@ -1567,7 +2033,7 @@ namespace BaseHospitalHomagama
        public String[] getTemplates(String column,String speci)
         {
             List<String> templ = new List<String>();
-            string StrCmd = "SELECT top 10 " + column + " FROM Table1 where specimen LIKE '%" + speci + "%' order by ID DESC";
+            string StrCmd = "SELECT top 10 " + column + " FROM Table1 where specimen LIKE '%" + speci + "%' AND NOT (" + column + " = '') group by " + column + " order by max(ID) desc";
             OleDbCommand Cmd = new OleDbCommand(StrCmd, MyConn);
             OleDbDataReader ObjReader = Cmd.ExecuteReader();
             while (ObjReader.Read())
@@ -1579,6 +2045,20 @@ namespace BaseHospitalHomagama
             else
                 return null;
         }
+
+       public int count()
+       {
+           int ret;
+           OleDbCommand cmdCheck;
+           if(MainWindow.searchPhrase=="")
+                cmdCheck = new OleDbCommand("SELECT COUNT(*) FROM Table1", MyConn);
+           else
+               cmdCheck = new OleDbCommand("SELECT COUNT(*) FROM Table1 WHERE "+MainWindow.searchPhrase, MyConn);
+
+           ret = Convert.ToInt32(cmdCheck.ExecuteScalar());
+           cmdCheck.ExecuteNonQuery();
+           return ret;
+       }
     }
     class UniqueListItemObject
     {

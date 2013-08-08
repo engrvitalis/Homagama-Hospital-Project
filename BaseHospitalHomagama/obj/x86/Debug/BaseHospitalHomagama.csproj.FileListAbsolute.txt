@@ -99,3 +99,19 @@ H:\Users\Yasura\Desktop\BaseHospitalHomagama\working\BaseHospitalHomagama\obj\x8
 H:\Users\Yasura\Desktop\BaseHospitalHomagama\working\BaseHospitalHomagama\obj\x86\Debug\GenerateResource.write.1.tlog
 J:\My Soft\homagama hospital proj\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\WindowTemplates.baml
 J:\My Soft\homagama hospital proj\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\WindowTemplates.g.cs
+D:\BaseHospitalHomagama\BaseHospitalHomagama\bin\Debug\BaseHospitalHomagama.exe
+D:\BaseHospitalHomagama\BaseHospitalHomagama\bin\Debug\BaseHospitalHomagama.pdb
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\ResolveAssemblyReference.cache
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.csproj.ResolveComReference.cache
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\MainWindow.baml
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\WindowTemplates.baml
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\MainWindow.g.cs
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\WindowTemplates.g.cs
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\App.g.cs
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama_MarkupCompile.cache
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.g.resources
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.Properties.Resources.resources
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\GenerateResource.read.1.tlog
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\GenerateResource.write.1.tlog
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.exe
+D:\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.pdb
