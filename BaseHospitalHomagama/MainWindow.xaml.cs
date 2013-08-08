@@ -42,6 +42,11 @@ namespace BaseHospitalHomagama
         public static int bottomid;
         public static bool hasmore;
         public static int listsize=10;
+        public static String template="";
+        String[] templates;
+        String templField;
+        WindowTemplates wintemp;
+        public static DispatcherTimer timer2 = new DispatcherTimer();
 
         private DispatcherTimer timer1 = new DispatcherTimer();
         
@@ -57,6 +62,10 @@ namespace BaseHospitalHomagama
             comboBoxTitle.SelectedIndex = 0;
             comboBoxGender.SelectedIndex = 0;
             comboBoxSeverity.SelectedIndex = 0;                                          //**
+            buttonTemplate1.Visibility = System.Windows.Visibility.Hidden;
+            buttonTemplate2.Visibility = System.Windows.Visibility.Hidden;
+            buttonTemplate3.Visibility = System.Windows.Visibility.Hidden;
+            buttonTemplate4.Visibility = System.Windows.Visibility.Hidden;
 
             datePicker1.SelectedDate = DateTime.Today;
             datePicker2.SelectedDate = DateTime.Today;
@@ -67,6 +76,8 @@ namespace BaseHospitalHomagama
 
             timer1.Interval = new TimeSpan(0, 0, 4);
             timer1.Tick += new EventHandler(timer1_Elapsed);
+            timer2.Interval = new TimeSpan(0, 0, 1);
+            timer2.Tick += new EventHandler(timer2_Elapsed);
 
             if (!File.Exists("specimenList.cse"))
             {
@@ -917,6 +928,98 @@ namespace BaseHospitalHomagama
                 return;
         }
 
+        private void buttonTemplate1_Click(object sender, RoutedEventArgs e)
+        {
+            methodforTemplates("clinicalDetails");
+        }
+        private void buttonTemplate2_Click(object sender, RoutedEventArgs e)
+        {
+            methodforTemplates("macroscopy");
+        }
+        private void buttonTemplate3_Click(object sender, RoutedEventArgs e)
+        {
+            methodforTemplates("microscopy");
+        }
+        private void buttonTemplate4_Click(object sender, RoutedEventArgs e)
+        {
+            methodforTemplates("conclusion");
+        }
+
+        private void methodforTemplates(String colomn)
+        {
+            templField = colomn;
+            database.connectToDatabase();
+            templates = database.getTemplates(colomn, textSpecimen.Text);
+            database.closeConnection();
+            if (templates == null)
+            {
+                MessageBox.Show("Sorry No templates found, relates to this specimen", "", MessageBoxButton.OK, MessageBoxImage.Stop);
+                return;
+            }
+            this.IsEnabled = false;
+            
+            wintemp = new WindowTemplates();
+            wintemp.Show();
+            for (int i = 0; i < templates.Length; i++)
+                wintemp.listBox1.Items.Add(new UniqueListItemObject(templates[i]));
+                       
+        }
+
+        void timer2_Elapsed(object sender, EventArgs e)
+        {
+            if (template != null || template != "")
+            {
+                if (templField == "clinicalDetails")
+                    textClinicalDetails.Text = template;
+                else if (templField == "macroscopy")
+                    textMacroscopy.Text = template;
+                else if (templField == "microscopy")
+                    textMicroscopy.Text = template;
+                else if (templField == "conclusion")
+                    textConclusion.Text = template;
+            }
+            this.IsEnabled = true;
+            timer2.Stop();
+        }
+
+        private void textSpecimen_TextChanged(object sender, RoutedEventArgs e)
+        {
+            methodforTextSpecimenChanged();
+        }
+
+        private void methodforTextSpecimenChanged()
+        {
+            if (textSpecimen.Text == "")
+            {
+                buttonTemplate1.Visibility = buttonTemplate2.Visibility = buttonTemplate3.Visibility =
+                buttonTemplate4.Visibility = System.Windows.Visibility.Hidden;
+            }
+            else
+            {
+                if (textSpecimen.IsEnabled)
+                {
+                    buttonTemplate1.Visibility = buttonTemplate2.Visibility = buttonTemplate3.Visibility =
+                buttonTemplate4.Visibility = System.Windows.Visibility.Visible;
+                }
+                else
+                {
+                    buttonTemplate1.Visibility = buttonTemplate2.Visibility = buttonTemplate3.Visibility =
+                    buttonTemplate4.Visibility = System.Windows.Visibility.Hidden;
+                }
+            }
+        }
+
+        private void textSpecimen_IsEnabledChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            methodforTextSpecimenChanged();
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if(wintemp!=null)
+                wintemp.Close();
+        }
+               
     }
 
     [Serializable()]
@@ -1461,23 +1564,39 @@ namespace BaseHospitalHomagama
             cmdCheck.ExecuteNonQuery();
         }
 
-       /* public int count(int option)
+       public String[] getTemplates(String column,String speci)
         {
-            String command;
-            switch (option)
+            List<String> templ = new List<String>();
+            string StrCmd = "SELECT top 10 " + column + " FROM Table1 where specimen LIKE '%" + speci + "%' order by ID DESC";
+            OleDbCommand Cmd = new OleDbCommand(StrCmd, MyConn);
+            OleDbDataReader ObjReader = Cmd.ExecuteReader();
+            while (ObjReader.Read())
             {
-                case 1:
-                    {
-                        command = "SELECT COUNT(*) FROM Table1";
-                        break;
-                    }
-                default: 
-                    {
-                        return 0;
-                    }                    
+                templ.Add(ObjReader[column].ToString());
             }
-            OleDbCommand cmdCheck = new OleDbCommand(command, MyConn);
-            return Convert.ToInt32(cmdCheck.ExecuteScalar());
-        }*/
+            if (templ.Count > 0)
+                return templ.ToArray();
+            else
+                return null;
+        }
+    }
+    class UniqueListItemObject
+    {
+        private string _text;
+        public string Text { get { return _text; } set { _text = value; } }
+
+        public UniqueListItemObject(string input)
+        {
+            Text = input;
+        }
+        public UniqueListItemObject()
+        {
+            Text = string.Empty;
+        }
+
+        public override string ToString()
+        {
+            return Text;
+        }
     }
 }

@@ -1,7 +1,7 @@
 ﻿<Window x:Class="BaseHospitalHomagama.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MainWindow" Height="648" Width="1000" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" xmlns:my="clr-namespace:System.Windows.Controls;assembly=System.Windows.Controls.Input.Toolkit" Loaded="Window_Loaded">
+        Title="MainWindow" Height="648" Width="1000" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" xmlns:my="clr-namespace:System.Windows.Controls;assembly=System.Windows.Controls.Input.Toolkit" Loaded="Window_Loaded" Closing="Window_Closing">
     <Grid Background="#FFE1C4C4">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="969*" />
@@ -78,9 +78,13 @@
                     <DatePicker Height="25" HorizontalAlignment="Left" Margin="659,315,0,0" Name="datePicker2" VerticalAlignment="Top" Width="207" SelectedDateFormat="Long" TabIndex="115" />
                     <Label Content="Request Date :" Height="28" HorizontalAlignment="Left" HorizontalContentAlignment="Right" IsEnabled="True" Margin="69,312,0,0" Name="label15" VerticalAlignment="Top" Width="87" />
                     <Label Content="Tested on :" Height="28" HorizontalAlignment="Left" HorizontalContentAlignment="Right" IsEnabled="True" Margin="582,312,0,0" Name="label16" VerticalAlignment="Top" Width="71" />
+                    <Button Content="!" Height="20" HorizontalAlignment="Left" Margin="872,48,0,0" Name="buttonTemplate1" VerticalAlignment="Top" Width="20" Click="buttonTemplate1_Click" />
+                    <Button Content="!" Height="20" HorizontalAlignment="Left" Margin="872,116,0,0" Name="buttonTemplate2" VerticalAlignment="Top" Width="20" Click="buttonTemplate2_Click" />
+                    <Button Content="!" Height="20" HorizontalAlignment="Left" Margin="872,184,0,0" Name="buttonTemplate3" VerticalAlignment="Top" Width="20" Click="buttonTemplate3_Click" />
+                    <Button Content="!" Height="20" HorizontalAlignment="Left" Margin="872,252,0,0" Name="buttonTemplate4" VerticalAlignment="Top" Width="20" Click="buttonTemplate4_Click" />
                 </Grid>
                 <StackPanel Height="Auto" HorizontalAlignment="Left" Margin="161,114,0,0" Name="stackPanel1" VerticalAlignment="Top" Width="337">
-                    <my:AutoCompleteBox Name="textSpecimen" Width="337" Height="26" TabIndex="8000" />
+                    <my:AutoCompleteBox Name="textSpecimen" Width="337" Height="26" TabIndex="8000" TextChanged="textSpecimen_TextChanged" IsEnabledChanged="textSpecimen_IsEnabledChanged" />
                 </StackPanel>
                 <StackPanel Height="Auto" HorizontalAlignment="Left" Margin="51,114,0,0" Name="stackPanel2" VerticalAlignment="Top" Width="105">
                     <Label Content="Specimen :" Height="26" Name="label7" Width="105" HorizontalContentAlignment="Right" />

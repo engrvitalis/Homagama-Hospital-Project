@@ -97,3 +97,5 @@ H:\Users\Yasura\Desktop\BaseHospitalHomagama\working\BaseHospitalHomagama\obj\x8
 H:\Users\Yasura\Desktop\BaseHospitalHomagama\working\BaseHospitalHomagama\obj\x86\Debug\BaseHospitalHomagama.Properties.Resources.resources
 H:\Users\Yasura\Desktop\BaseHospitalHomagama\working\BaseHospitalHomagama\obj\x86\Debug\GenerateResource.read.1.tlog
 H:\Users\Yasura\Desktop\BaseHospitalHomagama\working\BaseHospitalHomagama\obj\x86\Debug\GenerateResource.write.1.tlog
+J:\My Soft\homagama hospital proj\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\WindowTemplates.baml
+J:\My Soft\homagama hospital proj\BaseHospitalHomagama\BaseHospitalHomagama\obj\x86\Debug\WindowTemplates.g.cs
